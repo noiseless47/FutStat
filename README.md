@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌟 FutStat Pro - Football Analytics Platform
 
-## Getting Started
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-007ACC?style=for-the-badge&logo=typescript)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-3-38B2AC?style=for-the-badge&logo=tailwind-css)
 
-First, run the development server:
+A modern football statistics and analytics platform providing real-time scores, comprehensive statistics, and in-depth analytics for major leagues and competitions.
+
+## ✨ Features
+
+- 🎯 Live match tracking and statistics
+- 📊 Comprehensive team and player analytics
+- 🌓 Dark/Light theme support
+- 📱 Responsive design for all devices
+- ⚡ Optimized performance with Next.js
+- 🎨 Modern UI with custom design system
+
+## 🚀 Quick Start
+
+First, install the dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the app in action.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** Next.js 14
+- **Language:** TypeScript
+- **Styling:** TailwindCSS
+- **Theme:** next-themes
+- **Fonts:** Inter & Outfit
+- **Linting:** ESLint
+- **Formatting:** Prettier
 
-## Learn More
+## 📁 Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/              # Next.js app router
+├── components/       # Reusable UI components
+├── lib/             # Utility functions
+└── styles/          # Global styles
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🎨 Design System
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Custom typography with Inter & Outfit fonts
+- Dynamic theme switching (Light/Dark)
+- Consistent color palette
+- Responsive components
 
-## Deploy on Vercel
+## 🔧 Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```env
+NEXT_PUBLIC_API_URL=your_api_url_here
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📦 Scripts
+
+```bash
+npm run dev         # Start development server
+npm run build      # Build for production
+npm run start      # Start production server
+npm run lint       # Run ESLint
+```
+
+## 🚀 Deployment
+
+Deploy easily using [Vercel](https://vercel.com):
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with ⚽ by the FutStat Pro team
