@@ -1,9 +1,39 @@
+import { SharedImage } from '@/components/ui/shared-image';
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card } from "@/components/ui/card"
-import { footballApi, Match } from '@/lib/football-api'
+import { useEffect, useState } from 'react'
+import { Card, CardContent } from "@/components/ui/card"
 import { format } from 'date-fns'
+
+interface Match {
+  id: number
+  tournament: {
+    uniqueTournament: {
+      id: number
+      name: string
+    }
+  }
+  homeTeam: {
+    id: number
+    name: string
+    shortName: string
+  }
+  awayTeam: {
+    id: number
+    name: string
+    shortName: string
+  }
+  homeScore?: {
+    current: number
+  }
+  awayScore?: {
+    current: number
+  }
+  startTimestamp: number
+  status: {
+    type: string
+  }
+}
 
 interface RecentMatchesProps {
   teamId: number
@@ -11,122 +41,148 @@ interface RecentMatchesProps {
 
 export function RecentMatches({ teamId }: RecentMatchesProps) {
   const [matches, setMatches] = useState<Match[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchMatches() {
+    const loadMatches = async () => {
       try {
-        setLoading(true)
-        const data = await footballApi.getTeamMatches(teamId)
-        setMatches(data.matches)
+        setIsLoading(true)
+        setError(null)
+
+        // Get past matches
+        const pastMatchesResponse = await fetch(`https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        })
+        const pastMatchesData = await pastMatchesResponse.json()
+
+        // Get upcoming matches
+        const upcomingMatchesResponse = await fetch(`https://api.sofascore.com/api/v1/team/${teamId}/events/next/0`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        })
+        const upcomingMatchesData = await upcomingMatchesResponse.json()
+
+        // Filter and sort past matches
+        const pastMatches = (pastMatchesData.events || [])
+          .filter((match: Match) => {
+            const matchDate = new Date(match.startTimestamp * 1000)
+            const isCurrentSeason = matchDate > new Date('2023-07-01')
+            return isCurrentSeason && match.status.type === 'finished'
+          })
+          .sort((a: Match, b: Match) => b.startTimestamp - a.startTimestamp)
+          .slice(0, 8) // Take only last 8 matches
+
+        // Get upcoming 2 matches
+        const upcomingMatches = (upcomingMatchesData.events || [])
+          .filter((match: Match) => match.status.type === 'notstarted')
+          .slice(0, 2) // Take only next 2 matches
+
+        // Combine matches with past matches first, then upcoming
+        setMatches([...pastMatches, ...upcomingMatches])
+
+        // Sort all matches by date (most recent first)
+        setMatches(matches => 
+          [...matches].sort((a, b) => b.startTimestamp - a.startTimestamp)
+        )
+
       } catch (error) {
-        console.error('Error fetching matches:', error)
+        console.error('Error loading matches:', error)
         setError('Failed to load matches')
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
-    fetchMatches()
+    loadMatches()
   }, [teamId])
 
-  const formatDate = (utcDate: string) => {
-    const date = new Date(utcDate)
-    return date.toLocaleDateString('default', { 
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    }).replace(/\//g, '/')
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          Loading matches...
+        </CardContent>
+      </Card>
+    )
   }
 
-  const getWinnerStyles = (match: Match, isHome: boolean) => {
-    if (match.status !== 'FINISHED') return ''
-    
-    const homeScore = match.score.fullTime.home ?? 0
-    const awayScore = match.score.fullTime.away ?? 0
-    
-    if (homeScore === awayScore) return 'text-gray-400'
-    if (isHome) {
-      return homeScore > awayScore ? 'font-bold text-black' : 'text-gray-400'
-    }
-    return awayScore > homeScore ? 'font-bold text-black' : 'text-gray-400'
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-red-500">
+          {error}
+        </CardContent>
+      </Card>
+    )
   }
 
-  if (loading) return <div className="p-4 text-center">Loading matches...</div>
-  if (error) return <div className="p-4 text-red-500 text-center">{error}</div>
+  if (matches.length === 0) return null
+
+  const now = Date.now() / 1000 // Current timestamp in seconds
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Recent Matches</h2>
-      <Card>
-        <div className="divide-y">
-          {matches.map((match) => (
-            <div key={match.id} className="p-4">
-              <div className="flex flex-col space-y-2">
-                {/* Competition header */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <img 
-                    src={match.competition.emblem} 
-                    alt={match.competition.name}
-                    className="w-4 h-4"
-                  />
-                  <span>{match.competition.name}</span>
+    <Card>
+      <div className="p-4 border-b flex items-center justify-between">
+        <h2 className="font-semibold">Matches</h2>
+        <span className="text-sm text-muted-foreground">
+          {matches.length} matches
+        </span>
+      </div>
+      <CardContent className="p-0 divide-y">
+        {matches.map((match) => {
+          const isUpcoming = match.startTimestamp > now
+          const isPast = match.startTimestamp < now
+          
+          return (
+            <div key={match.id} className="p-4 hover:bg-accent/50 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                <SharedImage type="league" id={${match.tournament.uniqueTournament.id}} className="w-4 h-4" alt="" />
+                <span>{match.tournament.uniqueTournament.name}</span>
+                <span className="ml-auto">
+                  {format(new Date(match.startTimestamp * 1000), 'MMM dd, yyyy')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-1">
+                  <SharedImage type="team" id={${match.homeTeam.id}} className="w-6 h-6" alt="" />
+                  <span className={`${match.homeTeam.id === teamId ? "font-medium" : ""} ${
+                    isPast && (match.homeScore?.current ?? 0) > (match.awayScore?.current ?? 0) ? "text-green-600" : 
+                    isPast && (match.homeScore?.current ?? 0) < (match.awayScore?.current ?? 0) ? "text-red-600" : ""
+                  }`}>
+                    {match.homeTeam.shortName}
+                  </span>
                 </div>
-
-                {/* Match details */}
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col items-center w-24">
-                    <div className="text-sm text-muted-foreground">
-                      {formatDate(match.utcDate)}
-                    </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      {match.status === 'FINISHED' && (
-                        <span>FT</span>
-                      )}
-                      {match.status === 'FINISHED' ? '' : format(new Date(match.utcDate), 'HH:mm')}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 px-4">
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={match.homeTeam.crest} 
-                        alt={match.homeTeam.name}
-                        className="w-5 h-5"
-                      />
-                      <span className={getWinnerStyles(match, true)}>
-                        {match.homeTeam.shortName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={match.awayTeam.crest} 
-                        alt={match.awayTeam.name}
-                        className="w-5 h-5"
-                      />
-                      <span className={getWinnerStyles(match, false)}>
-                        {match.awayTeam.shortName}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end">
-                      <span className={`font-bold ${getWinnerStyles(match, true)}`}>
-                        {match.score.fullTime.home ?? '-'}
-                      </span>
-                      <span className={`font-bold ${getWinnerStyles(match, false)}`}>
-                        {match.score.fullTime.away ?? '-'}
-                      </span>
-                    </div>
-                  </div>
+                <div className="px-3 font-bold">
+                  {isUpcoming ? (
+                    <span className="text-sm text-muted-foreground">
+                      {format(new Date(match.startTimestamp * 1000), 'HH:mm')}
+                    </span>
+                  ) : (
+                    <span className={
+                      (match.homeScore?.current ?? 0) === (match.awayScore?.current ?? 0) ? "text-yellow-600" : ""
+                    }>
+                      {match.homeScore?.current ?? 0} - {match.awayScore?.current ?? 0}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-1 justify-end text-right">
+                  <span className={`${match.awayTeam.id === teamId ? "font-medium" : ""} ${
+                    isPast && (match.awayScore?.current ?? 0) > (match.homeScore?.current ?? 0) ? "text-green-600" : 
+                    isPast && (match.awayScore?.current ?? 0) < (match.homeScore?.current ?? 0) ? "text-red-600" : ""
+                  }`}>
+                    {match.awayTeam.shortName}
+                  </span>
+                  <SharedImage type="team" id={${match.awayTeam.id}} className="w-6 h-6" alt="" />
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      </Card>
-    </div>
+          )
+        })}
+      </CardContent>
+    </Card>
   )
 } 

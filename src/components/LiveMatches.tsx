@@ -1,36 +1,50 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { footballApi, Match } from '@/lib/football-api'
-import { format } from 'date-fns'
+
+
 import { Activity } from 'lucide-react'
+import { fetches, SofaScore} from '@/lib/sofascore-api'
 
 export function LiveMatches() {
-  const [matches, setMatches] = useState<Match[]>([])
+  const [matches, setMatches] = useState<SofaScoreMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchMatches() {
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await footballApi.getMatches(2021)
-        const liveMatches = data.matches.filter(match => match.status === 'LIVE')
-        setMatches(liveMatches)
-      } catch (error) {
-        console.error('Error fetching matches:', error)
-        setError('Failed to load matches')
-      } finally {
-        setLoading(false)
-      }
-    }
+    let isSubscribed = true;
 
-    fetchMatches()
-    const interval = setInterval(fetchMatches, 60000)
-    return () => clearInterval(interval)
-  }, [])
+    const fetchMatchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const allMatches = await fetchMatches();
+        if (isSubscribed && allMatches) {
+          setMatches(allMatches);
+        }
+      } catch (error) {
+        console.error('Error fetching matches:', error);
+        if (isSubscribed) {
+          setError('Failed to load matches');
+        }
+      } finally {
+        if (isSubscribed) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchMatchData();
+    // Update every 30 seconds
+    const interval = setInterval(fetchMatchData, 30000);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   if (loading) return <div>Loading...</div>
   if (error) return <div className="text-red-500">{error}</div>
@@ -74,7 +88,7 @@ export function LiveMatches() {
                 <span className="font-medium">{match.homeTeam.shortName}</span>
               </div>
               <div className="font-bold">
-                {match.score.fullTime.home ?? 0} - {match.score.fullTime.away ?? 0}
+                {match.homeTeam.score} - {match.awayTeam.score}
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-medium">{match.awayTeam.shortName}</span>
@@ -85,11 +99,6 @@ export function LiveMatches() {
                 />
               </div>
             </div>
-            {match.score.halfTime.home !== null && (
-              <div className="text-sm text-muted-foreground text-center">
-                HT: {match.score.halfTime.home} - {match.score.halfTime.away}
-              </div>
-            )}
           </div>
         ))}
       </CardContent>

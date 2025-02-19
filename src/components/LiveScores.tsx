@@ -1,8 +1,9 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { footballApi } from '@/lib/football-api'
+
 
 interface Match {
   id: number

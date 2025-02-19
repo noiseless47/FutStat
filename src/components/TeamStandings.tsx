@@ -1,115 +1,99 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { footballApi, Standing, TeamStats } from '@/lib/football-api'
-import { DataTable } from './DataTable'
+import { SharedImage } from '@/components/ui/shared-image';
+import { useEffect, useState } from 'react'
+import { Card, CardContent } from "@/components/ui/card"
 
 interface TeamStandingsProps {
   teamId: number
 }
 
-// Define priority order for competitions
-const COMPETITION_ORDER = [
-  'Bundesliga',
-  'UEFA Champions League',
-  'DFB-Pokal',
-  'FIFA Club World Cup'
-]
-
 export function TeamStandings({ teamId }: TeamStandingsProps) {
-  const [standings, setStandings] = useState<Standing[]>([])
-  const [team, setTeam] = useState<TeamStats | null>(null)
-  const [selectedCompetition, setSelectedCompetition] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [standings, setStandings] = useState<any>(null)
+  const [seasonId, setSeasonId] = useState<number | null>(null)
 
   useEffect(() => {
-    async function fetchData() {
+    const loadStandings = async () => {
       try {
-        setLoading(true)
-        const teamData = await footballApi.getTeam(teamId)
-        setTeam(teamData)
-
-        // Sort competitions based on priority order
-        const sortedCompetitions = [...teamData.runningCompetitions].sort((a, b) => {
-          const indexA = COMPETITION_ORDER.indexOf(a.name)
-          const indexB = COMPETITION_ORDER.indexOf(b.name)
-          return indexA - indexB
+        // First get the current season
+        const seasonResponse = await fetch(`https://api.sofascore.com/api/v1/team/${teamId}/seasons`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
         })
+        const seasonData = await seasonResponse.json()
+        const currentSeason = seasonData.seasons[0]
+        setSeasonId(currentSeason.id)
 
-        // Get the first competition as default
-        const firstCompetition = sortedCompetitions[0]
-        if (firstCompetition) {
-          setSelectedCompetition(firstCompetition.id.toString())
-          const standingsData = await footballApi.getStandings(firstCompetition.id)
-          setStandings(standingsData)
-        }
+        // Then get standings
+        const standingsResponse = await fetch(`https://api.sofascore.com/api/v1/unique-tournament/${currentSeason.uniqueTournament.id}/season/${currentSeason.id}/standings/total`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        })
+        const standingsData = await standingsResponse.json()
+        setStandings(standingsData.standings[0])
       } catch (error) {
-        console.error('Error fetching standings:', error)
-        setError('Failed to load standings')
-      } finally {
-        setLoading(false)
+        console.error('Error loading standings:', error)
       }
     }
 
-    fetchData()
+    loadStandings()
   }, [teamId])
 
-  const handleCompetitionChange = async (competitionId: string) => {
-    try {
-      setLoading(true)
-      setSelectedCompetition(competitionId)
-      const standingsData = await footballApi.getStandings(parseInt(competitionId))
-      setStandings(standingsData)
-    } catch (error) {
-      console.error('Error fetching standings:', error)
-      setError('Failed to load standings')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (error) return <div className="text-red-500">{error}</div>
-
-  // Format data for DataTable
-  const tableData = standings.map(team => ({
-    id: team.team.id,
-    position: team.position,
-    name: team.team.name,
-    shortName: team.team.shortName,
-    crest: team.team.crest,
-    stats: {
-      played: team.playedGames,
-      won: team.won,
-      drawn: team.draw,
-      lost: team.lost,
-      goalsFor: team.goalsFor,
-      goalsAgainst: team.goalsAgainst,
-      goalDifference: team.goalDifference,
-      points: team.points
-    }
-  }))
+  if (!standings) return null
 
   return (
-    <DataTable 
-      data={tableData}
-      title="League Position"
-      showPosition={true}
-      competitionId={selectedCompetition}
-      showLeagueSelector={true}
-      onCompetitionChange={handleCompetitionChange}
-      competitions={team?.runningCompetitions
-        .sort((a, b) => {
-          const indexA = COMPETITION_ORDER.indexOf(a.name)
-          const indexB = COMPETITION_ORDER.indexOf(b.name)
-          return indexA - indexB
-        })
-        .map(comp => ({
-          id: comp.id,
-          name: comp.name
-        })) || []}
-      selectedCompetition={selectedCompetition}
-      loading={loading}
-    />
+    <Card>
+      <div className="p-4 border-b">
+        <h2 className="font-semibold">League Standings</h2>
+      </div>
+      <CardContent className="p-0">
+        <div className="relative overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase bg-muted">
+              <tr>
+                <th className="px-2 py-2 text-left w-8">#</th>
+                <th className="px-2 py-2 text-left">Team</th>
+                <th className="px-2 py-2 text-center w-8">P</th>
+                <th className="px-2 py-2 text-center w-8">W</th>
+                <th className="px-2 py-2 text-center w-8">D</th>
+                <th className="px-2 py-2 text-center w-8">L</th>
+                <th className="px-2 py-2 text-center w-10">GF</th>
+                <th className="px-2 py-2 text-center w-10">GA</th>
+                <th className="px-2 py-2 text-center w-10">GD</th>
+                <th className="px-2 py-2 text-center w-10">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.rows.map((row: unknown) => (
+                <tr 
+                  key={row.team.id} 
+                  className={`border-b hover:bg-accent/50 ${
+                    row.team.id === teamId ? 'bg-accent' : ''
+                  }`}
+                >
+                  <td className="px-2 py-2 text-left">{row.position}</td>
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-2">
+                      <SharedImage type="team" id={row.team.id} className="w-4 h-4" alt="" />
+                      <span>{row.team.shortName}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-center">{row.matches}</td>
+                  <td className="px-2 py-2 text-center">{row.wins}</td>
+                  <td className="px-2 py-2 text-center">{row.draws}</td>
+                  <td className="px-2 py-2 text-center">{row.losses}</td>
+                  <td className="px-2 py-2 text-center">{row.scoresFor}</td>
+                  <td className="px-2 py-2 text-center">{row.scoresAgainst}</td>
+                  <td className="px-2 py-2 text-center">{row.scoresFor - row.scoresAgainst}</td>
+                  <td className="px-2 py-2 text-center font-bold">{row.points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   )
 } 

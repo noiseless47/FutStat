@@ -45,7 +45,7 @@ export function Footer() {
         </div>
         
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          <p>© 2024 Sports Analytics. All rights reserved.</p>
+          <p>© 2025 FutStat. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -15,7 +15,7 @@ export async function fetchLiveScores() {
   const data = await response.json()
   
   // Transform the API response to match our interface
-  return data.response.map((fixture: any) => ({
+  return data.response.map((fixture: unknown) => ({
     id: fixture.fixture.id.toString(),
     homeTeam: fixture.teams.home.name,
     awayTeam: fixture.teams.away.name,

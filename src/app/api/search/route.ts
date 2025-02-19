@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       .slice(0, 5) // Limit to top 5 matches
 
     const filteredCompetitions = competitionsData.competitions
-      .filter((comp: any) => 
+      .filter((comp: unknown) => 
         comp.name.toLowerCase().includes(query) ||
         comp.code?.toLowerCase().includes(query)
       )
@@ -51,14 +51,14 @@ export async function GET(request: Request) {
 
     // Combine and format results
     const results = [
-      ...filteredTeams.map((team: any) => ({
+      ...filteredTeams.map((team: unknown) => ({
         id: team.id,
         name: team.shortName || team.name,
         type: 'team',
         image: team.crest,
         area: team.area?.name
       })),
-      ...filteredCompetitions.map((comp: any) => ({
+      ...filteredCompetitions.map((comp: unknown) => ({
         id: comp.id,
         name: comp.name,
         type: 'league',

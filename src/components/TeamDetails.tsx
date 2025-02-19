@@ -1,9 +1,10 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { footballApi, TeamStats, Player } from '@/lib/football-api'
+import { TeamStats, Player } from '@/lib/football-api'
 
 interface TeamDetailsProps {
   teamId: number

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { IoFootballOutline } from "react-icons/io5"
-import { GiCricketBat, GiShuttlecock, GiBoxingGlove, GiPoolEightBall } from "react-icons/gi"
+import { GiCricketBat, GiShuttlecock, GiBoxingGlove,} from "react-icons/gi"
 import { MdSportsBasketball, MdSportsTennis, MdSportsRugby, MdSportsVolleyball } from "react-icons/md"
 import { FaTableTennis } from "react-icons/fa"
 import { PiMotorcycleFill } from "react-icons/pi"

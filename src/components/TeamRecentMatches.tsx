@@ -1,9 +1,10 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
-import { footballApi, Match } from '@/lib/football-api'
-import { format } from 'date-fns'
+import { Match } from '@/lib/football-api'
+
 
 interface TeamRecentMatchesProps {
   teamId: number
@@ -23,7 +24,7 @@ export function TeamRecentMatches({ teamId }: TeamRecentMatchesProps) {
           throw new Error('No matches data received')
         }
         setMatches(data.matches)
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching matches:', error)
         setError(error.message || 'Failed to load matches')
       } finally {

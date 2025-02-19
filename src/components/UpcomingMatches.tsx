@@ -1,9 +1,10 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { footballApi, Match } from '@/lib/football-api'
-import { format, isToday, isTomorrow } from 'date-fns'
+import { Match } from '@/lib/football-api'
+import { isToday, isTomorrow } from 'date-fns'
 import { CalendarDays } from 'lucide-react'
 
 export function UpcomingMatches() {

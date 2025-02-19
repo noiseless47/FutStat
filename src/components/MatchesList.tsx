@@ -1,10 +1,11 @@
 'use client'
 
+;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
-import { footballApi, Match } from '@/lib/football-api'
-import { format, isToday, isYesterday, addDays, isBefore, isAfter } from 'date-fns'
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Match } from '@/lib/football-api'
+import { isToday, isYesterday, addDays, isBefore, isAfter } from 'date-fns'
+
 
 type MatchStatus = 'LIVE' | 'FINISHED' | 'SCHEDULED'
 
@@ -108,7 +109,7 @@ export function MatchesList() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleFilterChange = (filter: 'all' | MatchStatus) => {
+  // Unused: const handleFilterChange = (filter: 'all' | MatchStatus) => {
     setActiveFilter(filter)
     const statusFiltered = filter === 'all' 
       ? matches 
@@ -121,7 +122,7 @@ export function MatchesList() {
     setFilteredMatches(leagueFiltered)
   }
 
-  const handleLeagueChange = (leagueId: number | 'all') => {
+  // Unused: const handleLeagueChange = (leagueId: number | 'all') => {
     setSelectedLeague(leagueId)
     const leagueFiltered = leagueId === 'all'
       ? matches
@@ -145,9 +146,9 @@ export function MatchesList() {
     return format(matchDate, 'MMM d')
   }
 
-  const getLiveCount = () => matches.filter(m => m.status === 'LIVE').length
-  const getFinishedCount = () => matches.filter(m => m.status === 'FINISHED').length
-  const getUpcomingCount = () => matches.filter(m => m.status === 'SCHEDULED').length
+  // Unused: const getLiveCount = () => matches.filter(m => m.status === 'LIVE').length
+  // Unused: const getFinishedCount = () => matches.filter(m => m.status === 'FINISHED').length
+  // Unused: const getUpcomingCount = () => matches.filter(m => m.status === 'SCHEDULED').length
 
   const getWinnerStyles = (match: Match, isHome: boolean) => {
     if (match.status !== 'FINISHED') return ''
@@ -166,7 +167,7 @@ export function MatchesList() {
   if (error) return <div className="text-red-500">{error}</div>
 
   // Group matches by date
-  const groupedMatches = filteredMatches.reduce((groups, match) => {
+  // Unused: const groupedMatches = filteredMatches.reduce((groups, match) => {
     const date = formatMatchDate(match.utcDate)
     if (!groups[date]) {
       groups[date] = []

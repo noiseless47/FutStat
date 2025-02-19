@@ -7,7 +7,7 @@ if (!API_KEY) {
   console.error('Football Data API key is not configured')
 }
 
-const CACHE: { [key: string]: { data: any, timestamp: number } } = {}
+const CACHE: { [key: string]: { data: unknown, timestamp: number } } = {}
 const CACHE_DURATION = 60 * 1000 // 1 minute cache
 
 async function fetchFromFootballAPI(endpoint: string) {
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
     const data = await fetchFromFootballAPI(path)
     return NextResponse.json(data)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Route Error:', error)
     return NextResponse.json(
       { 

@@ -1,14 +1,17 @@
 'use client'
 
 // Define qualification zones for different competitions
-export const QUALIFICATION_ZONES = {
+export // Unused: /* Unused variable
+/* Unused QUALIFICATION_ZONES constant
+const QUALIFICATION_ZONES = {
   // Premier League
   2021: {
     championsLeague: [1, 2, 3, 4],
     europaLeague: [5],
     conferenceLeague: [6],
     relegation: [18, 19, 20]
-  },
+  }
+*/,
   // La Liga
   2014: {
     championsLeague: [1, 2, 3, 4],

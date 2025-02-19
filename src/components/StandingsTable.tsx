@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { footballApi, Standing } from '@/lib/football-api'
+import { Standing } from '@/lib/football-api'
 import { DataTable } from './DataTable'
 
 // Define available competitions
@@ -15,6 +15,8 @@ const COMPETITIONS = [
 ]
 
 // Define qualification zones for different competitions
+// Unused: /* Unused variable
+/* Unused QUALIFICATION_ZONES constant
 const QUALIFICATION_ZONES = {
   // Premier League
   2021: {
@@ -22,7 +24,8 @@ const QUALIFICATION_ZONES = {
     europaLeague: [5],
     conferenceLeague: [6],
     relegation: [18, 19, 20]
-  },
+  }
+*/,
   // La Liga
   2014: {
     championsLeague: [1, 2, 3, 4],
