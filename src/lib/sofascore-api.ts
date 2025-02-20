@@ -9,44 +9,58 @@ export interface SofaScoreLeague {
 
 export interface SofaScoreMatch {
   id: number;
+  tournament: {
+    name: string;
+    uniqueTournament: {
+      id: number;
+      name: string;
+    };
+    category?: {
+      name: string;
+      flag?: string;
+    };
+    round?: {
+      round?: number;
+      name?: string;
+    };
+  };
   status: {
     code: number;
     description: string;
+    type: string;
   };
   time?: {
-    initial: number;      // Base time in seconds
-    max: number;         // Maximum time in seconds
-    extra: number;       // Additional time in seconds
-    injuryTime1?: number; // First half injury time
     currentPeriodStartTimestamp: number;
-  };
-  period?: {
-    current: number;  // 1 for first half, 2 for second half
-  };
-  score: {
-    current: {
-      home: number;
-      away: number;
-    };
-    period1?: {
-      home: number;
-      away: number;
-    };
+    initial: number;
+    max: number;
+    extra?: number;
+    injuryTime?: number;
+    timestamp: number;
   };
   homeTeam: {
+    id: number;
     name: string;
     shortName: string;
     crest: string;
-    score: number;
   };
   awayTeam: {
+    id: number;
     name: string;
     shortName: string;
     crest: string;
-    score: number;
   };
-  league: SofaScoreLeague;
-  startTime: Date;
+  homeScore: {
+    current: number;
+    display: number;
+    period1?: number;
+    period2?: number;
+  };
+  awayScore: {
+    current: number;
+    display: number;
+    period1?: number;
+    period2?: number;
+  };
 }
 
 const TOP_LEAGUES = {
@@ -60,93 +74,122 @@ const TOP_LEAGUES = {
 
 export const fetchMatches = async (): Promise<SofaScoreMatch[]> => {
   try {
-    // Get dates for 24h window
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-
-    // Format dates as YYYY-MM-DD
-    const fromDate = yesterday.toISOString().split('T')[0];
-    const toDate = tomorrow.toISOString().split('T')[0];
-
-    // Fetch matches for each date
-    const responses = await Promise.all([
-      fetch(`https://api.sofascore.com/api/v1/sport/football/scheduled-events/${fromDate}`, {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    console.log('Fetching matches for date:', today);
+    
+    const response = await fetch(
+      `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${today}`,
+      {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-      }),
-      fetch(`https://api.sofascore.com/api/v1/sport/football/scheduled-events/${toDate}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      })
-    ]);
-
-    const [yesterdayData, tomorrowData] = await Promise.all(
-      responses.map(r => r.json())
+      }
     );
+    const data = await response.json();
+    console.log('Raw API response:', data);
 
-    // Combine and filter matches
-    const allMatches = [...yesterdayData.events, ...tomorrowData.events];
-    const filteredMatches = allMatches.filter(event => 
-      Object.values(TOP_LEAGUES).includes(event.tournament.uniqueTournament.id)
-    );
-
-    return filteredMatches.map((event: any) => ({
-      id: event.id,
-      status: {
-        code: event.status.code,
-        description: event.status.description
-      },
-      time: event.time ? {
-        initial: event.time.initial,
-        max: event.time.max,
-        extra: event.time.extra,
-        injuryTime1: event.time.injuryTime1,
-        currentPeriodStartTimestamp: event.time.currentPeriodStartTimestamp
-      } : undefined,
-      period: {
-        current: event.period?.current || 0
-      },
-      score: {
-        current: {
-          home: event.homeScore?.current || 0,
-          away: event.awayScore?.current || 0
+    // Map all matches without filtering
+    const matches = (data.events || []).map((event: any) => {
+      console.log('Processing event:', event);
+      return {
+        id: event.id,
+        tournament: {
+          name: event.tournament.name,
+          uniqueTournament: {
+            id: event.tournament.uniqueTournament.id,
+            name: event.tournament.uniqueTournament.name
+          },
+          category: event.tournament.category ? {
+            name: event.tournament.category.name,
+            flag: event.tournament.category.flag
+          } : undefined,
+          round: event.roundInfo ? {
+            round: event.roundInfo.round,
+            name: event.roundInfo.name
+          } : undefined
         },
-        period1: event.homeScore?.period1 !== undefined && event.awayScore?.period1 !== undefined ? {
-          home: event.homeScore.period1,
-          away: event.awayScore.period1
-        } : undefined
-      },
-      homeTeam: {
-        name: event.homeTeam.name,
-        shortName: event.homeTeam.shortName || event.homeTeam.name,
-        crest: `https://api.sofascore.app/api/v1/team/${event.homeTeam.id}/image`,
-        score: event.homeScore.current
-      },
-      awayTeam: {
-        name: event.awayTeam.name,
-        shortName: event.awayTeam.shortName || event.awayTeam.name,
-        crest: `https://api.sofascore.app/api/v1/team/${event.awayTeam.id}/image`,
-        score: event.awayScore.current
-      },
-      league: {
-        id: event.tournament.uniqueTournament.id,
-        name: event.tournament.uniqueTournament.name,
-        shortName: event.tournament.uniqueTournament.shortName || event.tournament.uniqueTournament.name,
-        crest: `https://api.sofascore.app/api/v1/unique-tournament/${event.tournament.uniqueTournament.id}/image`,
-        round: event.roundInfo?.round,
-        season: event.season?.name
-      },
-      startTime: new Date(event.startTimestamp * 1000)
-    }));
+        status: {
+          code: getStatusCode(event.status.description),
+          description: event.status.description,
+          type: event.status.type
+        },
+        time: {
+          currentPeriodStartTimestamp: event.time?.currentPeriodStartTimestamp,
+          initial: event.time?.initial || 0,
+          max: event.time?.max || 90,
+          extra: event.time?.extra,
+          injuryTime: event.time?.injuryTime,
+          timestamp: event.startTimestamp
+        },
+        homeTeam: {
+          id: event.homeTeam.id,
+          name: event.homeTeam.name,
+          shortName: event.homeTeam.shortName || event.homeTeam.name,
+          crest: `https://api.sofascore.app/api/v1/team/${event.homeTeam.id}/image`
+        },
+        awayTeam: {
+          id: event.awayTeam.id,
+          name: event.awayTeam.name,
+          shortName: event.awayTeam.shortName || event.awayTeam.name,
+          crest: `https://api.sofascore.app/api/v1/team/${event.awayTeam.id}/image`
+        },
+        homeScore: {
+          current: event.homeScore?.current || 0,
+          display: event.homeScore?.display || 0,
+          period1: event.homeScore?.period1,
+          period2: event.homeScore?.period2
+        },
+        awayScore: {
+          current: event.awayScore?.current || 0,
+          display: event.awayScore?.display || 0,
+          period1: event.awayScore?.period1,
+          period2: event.awayScore?.period2
+        }
+      };
+    });
 
+    console.log('Processed matches:', matches);
+    return matches;
   } catch (error) {
     console.error('Error fetching matches:', error);
     throw error;
   }
 };
+
+// Helper function to convert status description to code
+function getStatusCode(description: string): number {
+  // Add more status mappings based on what we see in the logs
+  const statusMap: { [key: string]: number } = {
+    'Not started': 0,
+    '1st half': 1,
+    'First half': 1,
+    'Halftime': 2,
+    'HT': 2,
+    '2nd half': 3,
+    'Second half': 3,
+    'Extra Time': 4,
+    'ET': 4,
+    'Penalty Shootout': 5,
+    'PEN': 5,
+    'Break Time': 6,
+    'BT': 6,
+    'Finished': 7,
+    'FT': 7,
+    'AET': 7,
+    'AP': 7,
+    'Ended': 7,
+    'Interrupted': 8,
+    'Abandoned': 9,
+    'Postponed': 10,
+    'Cancelled': 11
+  };
+
+  console.log('Status description:', description); // Debug log
+  console.log('Mapped status code:', statusMap[description]); // Debug log
+
+  return statusMap[description] ?? 0;
+}
 
 export interface MatchStatistics {
   statistics: Array<{
@@ -600,4 +643,27 @@ export async function fetchPlayerTournaments(playerId: number) {
     console.error('Error fetching player tournaments:', error)
     return null
   }
+}
+
+// Helper function to get match time display
+export function getMatchTime(match: SofaScoreMatch): string {
+  if (!match.status || !match.time) return match.status?.description || '';
+
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = Math.floor((now - match.time.currentPeriodStartTimestamp) / 60);
+
+  if (match.status.description.includes('1st half')) {
+    const regularTime = Math.min(elapsed, 45);
+    const injuryTime = elapsed > 45 ? elapsed - 45 : match.time.injuryTime;
+    return injuryTime ? `45+${injuryTime}'` : `${regularTime}'`;
+  }
+
+  if (match.status.description.includes('2nd half')) {
+    const regularTime = Math.min(elapsed + 45, 90);
+    const injuryTime = elapsed + 45 > 90 ? elapsed + 45 - 90 : match.time.injuryTime;
+    return injuryTime ? `90+${injuryTime}'` : `${regularTime}'`;
+  }
+
+  // For other statuses, just return the description
+  return match.status.description;
 } 

@@ -1,10 +1,10 @@
 'use client'
 
-;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TeamStats, Player } from '@/lib/football-api'
+import { fetchTeamData } from '@/lib/sofascore-api'
 
 interface TeamDetailsProps {
   teamId: number
@@ -20,7 +20,7 @@ export function TeamDetails({ teamId }: TeamDetailsProps) {
       try {
         setLoading(true)
         setError(null)
-        const data = await footballApi.getTeam(teamId)
+        const data = await fetchTeamData(teamId)
         setTeam(data)
       } catch (error) {
         console.error('Error fetching team:', error)

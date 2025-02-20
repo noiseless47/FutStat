@@ -3,12 +3,12 @@
 import { use } from 'react'
 import { TeamHeader } from "@/components/TeamHeader"
 import { TeamLeagueTables } from "@/components/TeamLeagueTables"
-import { Recentes } from "@/components/RecentMatches"
+import { RecentMatches } from "@/components/RecentMatches"
 import { TeamSquad } from "@/components/TeamSquad"
 
 export default function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
-  // Unused: const teamId = parseInt(resolvedParams.id)
+  const teamId = parseInt(resolvedParams.id)
 
   return (
     <div className="container py-6 space-y-6">

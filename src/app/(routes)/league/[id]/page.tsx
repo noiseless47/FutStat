@@ -1,11 +1,12 @@
 'use client'
 
-import { SharedImage } from '@/components/ui/shared-image';
+import { SharedImage } from '@/components/shared-image';
 import { useEffect, useState, use } from 'react'
 import { fetchLeagueStandings, type LeagueStandings } from '@/lib/sofascore-api'
 import { LeagueStats } from "@/components/LeagueStats"
 import { Trophy } from 'lucide-react'
 import { LeagueFixtures } from "@/components/LeagueFixtures"
+import { MatchDetailsModal } from "@/components/ui/match-details-modal"
 
 interface LeagueDetails {
   name: string
@@ -26,6 +27,9 @@ interface LeagueDetails {
     name: string
     flag: string
   }
+  currentSeason: {
+    id: number
+  }
 }
 
 export default function LeaguePage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +37,8 @@ export default function LeaguePage({ params }: { params: Promise<{ id: string }>
   const [league, setLeague] = useState<LeagueStandings | null>(null)
   const [details, setDetails] = useState<LeagueDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [seasonId, setSeasonId] = useState<number | null>(null)
+  const [selectedMatch, setSelectedMatch] = useState<any>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,6 +53,18 @@ export default function LeaguePage({ params }: { params: Promise<{ id: string }>
           }).then(res => res.json())
         ])
 
+        // Get the current season ID
+        const seasonResponse = await fetch(
+          `https://api.sofascore.com/api/v1/unique-tournament/${resolvedParams.id}/seasons`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          }
+        ).then(res => res.json())
+
+        const currentSeason = seasonResponse.seasons?.[0]?.id
+        setSeasonId(currentSeason)
         setLeague(standingsData)
         setDetails(detailsResponse.uniqueTournament)
       } catch (error) {
@@ -60,7 +78,7 @@ export default function LeaguePage({ params }: { params: Promise<{ id: string }>
   }, [resolvedParams.id])
 
   if (loading) return <div>Loading...</div>
-  if (!league || !details) return <div>League not found</div>
+  if (!league || !details || !seasonId) return <div>League not found</div>
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -165,19 +183,28 @@ export default function LeaguePage({ params }: { params: Promise<{ id: string }>
 
           {/* Fixtures */}
           <LeagueFixtures 
-            leagueId={league.id} 
-            seasonId={league.seasonId} 
+            leagueId={parseInt(resolvedParams.id)} 
+            seasonId={seasonId} 
+            onMatchClick={(match) => setSelectedMatch(match)}
           />
         </div>
 
         {/* Right Column - Stats */}
         <div>
           <LeagueStats 
-            leagueId={league.id} 
-            seasonId={league.seasonId} 
+            leagueId={parseInt(resolvedParams.id)} 
+            seasonId={seasonId} 
           />
         </div>
       </div>
+
+      {selectedMatch && (
+        <MatchDetailsModal
+          matchId={selectedMatch.id}
+          isOpen={!!selectedMatch}
+          onClose={() => setSelectedMatch(null)}
+        />
+      )}
     </div>
   )
 } 

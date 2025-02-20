@@ -13,6 +13,9 @@ async function fetchFromAPI<T>(endpoint: string): Promise<T> {
   return data
 }
 
+// Add this type at the top with other interfaces
+type PreferredFoot = 'Left' | 'Right';
+
 export interface Player {
   id: number
   name: string
@@ -48,7 +51,7 @@ export interface Player {
     start: string
     until: string
   }
-  preferredFoot?: 'Left' | 'Right'
+  preferredFoot?: PreferredFoot
   attributes?: {
     pace?: number
     shooting?: number
@@ -160,11 +163,14 @@ export interface TeamSuggestion {
   id: number
   name: string
   shortName: string
+  tla?: string
   crest: string
   area: {
     name: string
     flag: string
+    leagueName?: string
   }
+  squad?: Player[]
 }
 
 export interface LeagueSuggestion {
@@ -254,7 +260,6 @@ export const footballApi = {
             stats: playerStats.stats,
             marketValue: playerStats.marketValue,
             contract: playerStats.contract,
-            preferredFoot: playerStats.preferredFoot,
             attributes: playerStats.attributes,
             trophies: playerStats.trophies
           }
@@ -356,8 +361,8 @@ export const footballApi = {
 
     return allTeams.filter(team =>
       team.name.toLowerCase().includes(lowerQuery) ||
-      team.shortName?.toLowerCase().includes(lowerQuery) ||
-      team.tla?.toLowerCase().includes(lowerQuery)
+      (team.shortName?.toLowerCase() || '').includes(lowerQuery) ||
+      (team.tla?.toLowerCase() || '').includes(lowerQuery)
     )
   },
 
@@ -366,13 +371,12 @@ export const footballApi = {
     
     try {
       const allTeams = await this.getAllTeams()
-      const playersMap = new Map() // Use Map to deduplicate players
+      const playersMap = new Map()
 
       allTeams
-        .filter(team => team.squad)
+        .filter(team => Array.isArray(team.squad) && team.squad.length > 0)
         .forEach(team => {
-          (team.squad || []).forEach(player => {
-            // Only add player if they match search and haven't been added yet
+          team.squad?.forEach(player => {
             if (
               (player.name.toLowerCase().includes(query.toLowerCase()) ||
               player.firstName?.toLowerCase().includes(query.toLowerCase()) ||
@@ -391,7 +395,6 @@ export const footballApi = {
           })
         })
 
-      // Convert Map to array and limit results
       return Array.from(playersMap.values()).slice(0, 5)
     } catch (error) {
       console.error('Player search error:', error)

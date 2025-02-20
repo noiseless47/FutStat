@@ -1,17 +1,24 @@
 'use client'
 
+// Define the type for qualification zones
+type QualificationZone = {
+  championsLeague: number[];
+  championsLeaguePlayoff?: number[];
+  europaLeague: number[];
+  conferenceLeague: number[];
+  relegation: number[];
+  directRelegation?: number[];
+}
+
 // Define qualification zones for different competitions
-export // Unused: /* Unused variable
-/* Unused QUALIFICATION_ZONES constant
-const QUALIFICATION_ZONES = {
+const QUALIFICATION_ZONES: Record<number, QualificationZone> = {
   // Premier League
-  2021: {
-    championsLeague: [1, 2, 3, 4],
-    europaLeague: [5],
-    conferenceLeague: [6],
-    relegation: [18, 19, 20]
-  }
-*/,
+  17: {
+    championsLeague: [1, 4],
+    europaLeague: [5, 5],
+    conferenceLeague: [6, 6],
+    relegation: [18, 20]
+  },
   // La Liga
   2014: {
     championsLeague: [1, 2, 3, 4],
@@ -39,9 +46,12 @@ const QUALIFICATION_ZONES = {
     championsLeague: [1, 2, 3],
     championsLeaguePlayoff: [4],
     europaLeague: [5],
+    conferenceLeague: [6],
     relegation: [16, 17, 18] // 16 is playoff
   }
 }
+
+export { QUALIFICATION_ZONES }
 
 interface PositionIndicatorProps {
   position: number

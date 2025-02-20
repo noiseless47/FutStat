@@ -1,11 +1,29 @@
 'use client'
 
-import { SharedImage } from '@/components/ui/shared-image';
+import { SharedImage } from '@/components/shared-image';
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 
 interface TeamStandingsProps {
   teamId: number
+}
+
+interface StandingRow {
+  team: {
+    id: number;
+    name: string;
+    shortName: string;
+    crest: string;
+  };
+  position: number;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
 }
 
 export function TeamStandings({ teamId }: TeamStandingsProps) {
@@ -44,9 +62,9 @@ export function TeamStandings({ teamId }: TeamStandingsProps) {
   if (!standings) return null
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <div className="p-4 border-b">
-        <h2 className="font-semibold">League Standings</h2>
+        <h2 className="font-semibold">Standings</h2>
       </div>
       <CardContent className="p-0">
         <div className="relative overflow-x-auto">
@@ -66,7 +84,7 @@ export function TeamStandings({ teamId }: TeamStandingsProps) {
               </tr>
             </thead>
             <tbody>
-              {standings.rows.map((row: unknown) => (
+              {standings.rows.map((row: StandingRow) => (
                 <tr 
                   key={row.team.id} 
                   className={`border-b hover:bg-accent/50 ${
@@ -80,13 +98,13 @@ export function TeamStandings({ teamId }: TeamStandingsProps) {
                       <span>{row.team.shortName}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-2 text-center">{row.matches}</td>
-                  <td className="px-2 py-2 text-center">{row.wins}</td>
-                  <td className="px-2 py-2 text-center">{row.draws}</td>
-                  <td className="px-2 py-2 text-center">{row.losses}</td>
-                  <td className="px-2 py-2 text-center">{row.scoresFor}</td>
-                  <td className="px-2 py-2 text-center">{row.scoresAgainst}</td>
-                  <td className="px-2 py-2 text-center">{row.scoresFor - row.scoresAgainst}</td>
+                  <td className="px-2 py-2 text-center">{row.played}</td>
+                  <td className="px-2 py-2 text-center">{row.won}</td>
+                  <td className="px-2 py-2 text-center">{row.drawn}</td>
+                  <td className="px-2 py-2 text-center">{row.lost}</td>
+                  <td className="px-2 py-2 text-center">{row.goalsFor}</td>
+                  <td className="px-2 py-2 text-center">{row.goalsAgainst}</td>
+                  <td className="px-2 py-2 text-center">{row.goalDifference}</td>
                   <td className="px-2 py-2 text-center font-bold">{row.points}</td>
                 </tr>
               ))}

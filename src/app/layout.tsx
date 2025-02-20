@@ -4,7 +4,7 @@ import "./globals.css";
 import { TopNavigation } from '@/components/TopNavigation'
 import { SportsNavigation } from '@/components/SportsNavigation'
 import { Footer } from '@/components/Footer'
-import { ThemeProvider } from 'next-themes'
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,8 +28,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
+      <head />
       <body className="min-h-screen flex flex-col font-sans">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <TopNavigation />
           <SportsNavigation />
           <main className="flex-1">

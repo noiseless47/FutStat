@@ -148,5 +148,13 @@ export const apiFootball = {
   async getPlayerStatistics(playerId: number, season: number) {
     return fetchFromAPI<Player>(`/players?id=${playerId}&season=${season}`)
   }
-} 
+}
+
+export async function fetchPlayerStatistics(playerId: number) {
+  try {
+    // ... code inside try block ...
+  } catch (error) {
+    console.error('Error fetching player statistics:', error)
+    return null
+  }
 } 

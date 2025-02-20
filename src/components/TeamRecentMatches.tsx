@@ -1,38 +1,38 @@
 'use client'
 
-;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
-import { Match } from '@/lib/football-api'
-
+import { fetchMatches } from '@/lib/sofascore-api'
+import { format } from 'date-fns'
+import { SharedImage } from '@/components/ui/shared-image'
 
 interface TeamRecentMatchesProps {
   teamId: number
 }
 
 export function TeamRecentMatches({ teamId }: TeamRecentMatchesProps) {
-  const [matches, setMatches] = useState<Match[]>([])
+  const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchMatches() {
+    async function loadMatches() {
       try {
         setLoading(true)
-        const data = await footballApi.getTeamMatches(teamId)
-        if (!data.matches) {
-          throw new Error('No matches data received')
-        }
-        setMatches(data.matches)
-      } catch (error: unknown) {
-        console.error('Error fetching matches:', error)
-        setError(error.message || 'Failed to load matches')
+        const data = await fetchMatches()
+        const teamMatches = data.filter(match => 
+          match.homeTeam.id === teamId || match.awayTeam.id === teamId
+        )
+        setMatches(teamMatches)
+      } catch (error) {
+        console.error('Error fetching team matches:', error)
+        setError('Failed to load matches')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchMatches()
+    loadMatches()
   }, [teamId])
 
   if (loading) return <div className="p-4 text-center">Loading matches...</div>
@@ -87,6 +87,16 @@ export function TeamRecentMatches({ teamId }: TeamRecentMatchesProps) {
                     className="w-6 h-6"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <SharedImage 
+                  type="league" 
+                  id={match.tournament.id}
+                  className="w-4 h-4"
+                  alt={match.tournament.name}
+                />
+                <span>{match.tournament.name}</span>
               </div>
             </div>
           </Card>

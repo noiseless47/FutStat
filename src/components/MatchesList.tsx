@@ -1,252 +1,266 @@
 'use client'
 
-;
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
-import { Match } from '@/lib/football-api'
-import { isToday, isYesterday, addDays, isBefore, isAfter } from 'date-fns'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { SharedImage } from '@/components/shared-image'
+import { Activity } from 'lucide-react'
+import { fetchMatches, type SofaScoreMatch, getMatchTime } from '@/lib/sofascore-api'
 
+// Top leagues IDs
+const TOP_LEAGUES = {
+  premierLeague: 17,
+  laLiga: 8,
+  bundesliga: 35,
+  serieA: 23,
+  ligue1: 34,
+  championsLeague: 7,
+  europaLeague: 679,
+  conferenceLeague: 17015
+};
 
-type MatchStatus = 'LIVE' | 'FINISHED' | 'SCHEDULED'
+function formatDateTime(timestamp: number) {
+  const date = new Date(timestamp * 1000);
+  return {
+    date: date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short'
+    }),
+    time: date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  };
+}
 
-const MAJOR_LEAGUES = [
-  { id: 2021, name: "Premier League" },
-  { id: 2014, name: "La Liga" },
-  { id: 2002, name: "Bundesliga" },
-  { id: 2019, name: "Serie A" },
-  { id: 2015, name: "Ligue 1" }
-]
+function formatRoundInfo(match: SofaScoreMatch) {
+  if (!match.tournament.round) return '';
+  
+  // Handle different round formats
+  if (match.tournament.round.round) {
+    return `Round ${match.tournament.round.round}`;
+  } else if (match.tournament.round.name) {
+    return match.tournament.round.name;
+  }
+  return '';
+}
 
-const OTHER_LEAGUES = [
-  { id: 2001, name: "UEFA Champions League" },
-  { id: 2146, name: "UEFA Europa League" }
-]
+function getWinnerStyle(match: SofaScoreMatch, isHome: boolean) {
+  if (match.status.type !== 'finished') return '';
+  
+  const homeScore = match.homeScore.display;
+  const awayScore = match.awayScore.display;
+  
+  if (homeScore === awayScore) return '';
+  if (isHome && homeScore > awayScore) return 'font-bold';
+  if (!isHome && awayScore > homeScore) return 'font-bold';
+  return '';
+}
+
+// Add new function to handle score display
+function ScoreDisplay({ match }: { match: SofaScoreMatch }) {
+  const homeWon = match.homeScore.display > match.awayScore.display;
+  const awayWon = match.awayScore.display > match.homeScore.display;
+
+  return (
+    <div className="font-medium dark:text-white">
+      <span className={homeWon ? 'font-bold' : ''}>
+        {match.homeScore.display}
+      </span>
+      {' - '}
+      <span className={awayWon ? 'font-bold' : ''}>
+        {match.awayScore.display}
+      </span>
+    </div>
+  );
+}
 
 export function MatchesList() {
-  const [matches, setMatches] = useState<Match[]>([])
-  const [filteredMatches, setFilteredMatches] = useState<Match[]>([])
-  const [activeFilter, setActiveFilter] = useState<'all' | MatchStatus>('all')
+  const [matches, setMatches] = useState<SofaScoreMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedLeague, setSelectedLeague] = useState<number | 'all'>('all')
+  const [activeTab, setActiveTab] = useState('all')
 
   useEffect(() => {
-    async function fetchMatches() {
+    const loadMatches = async () => {
       try {
         setLoading(true)
-        setError(null)
+        const data = await fetchMatches()
+        
+        const sortedMatches = data.sort((a, b) => {
+          // First priority: Live matches
+          if (a.status.type === 'inprogress' && b.status.type !== 'inprogress') return -1;
+          if (b.status.type === 'inprogress' && a.status.type !== 'inprogress') return 1;
 
-        // First fetch major leagues
-        const majorLeagueMatches = await Promise.all(
-          MAJOR_LEAGUES.map(league => 
-            footballApi.getMatches(league.id).catch(error => {
-              console.error(`Error fetching ${league.name} matches:`, error)
-              return { matches: [] }
-            })
-          )
-        )
+          // Second priority: Top leagues
+          const aIsTopLeague = Object.values(TOP_LEAGUES).includes(a.tournament.uniqueTournament.id);
+          const bIsTopLeague = Object.values(TOP_LEAGUES).includes(b.tournament.uniqueTournament.id);
+          if (aIsTopLeague && !bIsTopLeague) return -1;
+          if (!aIsTopLeague && bIsTopLeague) return 1;
 
-        // Then fetch other leagues
-        const otherLeagueMatches = await Promise.all(
-          OTHER_LEAGUES.map(league => 
-            footballApi.getMatches(league.id).catch(error => {
-              console.error(`Error fetching ${league.name} matches:`, error)
-              return { matches: [] }
-            })
-          )
-        )
-
-        const allMatches = [
-          ...majorLeagueMatches.flatMap(response => response.matches),
-          ...otherLeagueMatches.flatMap(response => response.matches)
-        ]
-
-        const now = new Date()
-        const past24h = new Date(now.getTime() - (24 * 60 * 60 * 1000))
-        const next24h = new Date(now.getTime() + (24 * 60 * 60 * 1000))
-
-        // Map API statuses to our status types
-        const statusMap: Record<string, MatchStatus> = {
-          'SCHEDULED': 'SCHEDULED',
-          'TIMED': 'SCHEDULED',
-          'IN_PLAY': 'LIVE',
-          'PAUSED': 'LIVE',
-          'FINISHED': 'FINISHED',
-          'COMPLETED': 'FINISHED',
-          'POSTPONED': 'SCHEDULED',
-          'SUSPENDED': 'SCHEDULED',
-          'CANCELLED': 'SCHEDULED'
-        }
-
-        const recentMatches = allMatches
-          .filter(match => {
-            const matchDate = new Date(match.utcDate)
-            return matchDate >= past24h && matchDate <= next24h
-          })
-          .map(match => ({
-            ...match,
-            status: statusMap[match.status] || 'SCHEDULED'
-          }))
-
-        const sortedMatches = recentMatches.sort((a, b) => {
-          if (a.status === 'LIVE' && b.status !== 'LIVE') return -1
-          if (a.status !== 'LIVE' && b.status === 'LIVE') return 1
-          return new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
-        })
+          // Third priority: Match time
+          return (a.time?.timestamp || 0) - (b.time?.timestamp || 0);
+        });
 
         setMatches(sortedMatches)
-        setFilteredMatches(sortedMatches)
       } catch (error) {
-        console.error('Error fetching matches:', error)
+        console.error('Error loading matches:', error)
         setError('Failed to load matches')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchMatches()
-    const interval = setInterval(fetchMatches, 60000)
+    loadMatches()
+    const interval = setInterval(loadMatches, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  // Unused: const handleFilterChange = (filter: 'all' | MatchStatus) => {
-    setActiveFilter(filter)
-    const statusFiltered = filter === 'all' 
-      ? matches 
-      : matches.filter(match => match.status === filter)
-    
-    const leagueFiltered = selectedLeague === 'all'
-      ? statusFiltered
-      : statusFiltered.filter(match => match.competition.id === selectedLeague)
-    
-    setFilteredMatches(leagueFiltered)
-  }
-
-  // Unused: const handleLeagueChange = (leagueId: number | 'all') => {
-    setSelectedLeague(leagueId)
-    const leagueFiltered = leagueId === 'all'
-      ? matches
-      : matches.filter(match => match.competition.id === leagueId)
-    
-    const statusFiltered = activeFilter === 'all'
-      ? leagueFiltered
-      : leagueFiltered.filter(match => match.status === activeFilter)
-    
-    setFilteredMatches(statusFiltered)
-  }
-
-  function formatMatchDate(date: string) {
-    const matchDate = new Date(date)
-    if (isToday(matchDate)) {
-      return 'Today'
+  // Filter matches based on status
+  const filteredMatches = matches.filter(match => {
+    switch (activeTab) {
+      case 'live':
+        return match.status.type === 'inprogress';
+      case 'completed':
+        return match.status.type === 'finished';
+      case 'scheduled':
+        return match.status.type !== 'inprogress' && match.status.type !== 'finished';
+      default:
+        return true;
     }
-    if (isYesterday(matchDate)) {
-      return 'Yesterday'
+  });
+
+  // Group filtered matches by tournament
+  const groupedMatches = filteredMatches.reduce((groups, match) => {
+    const tournamentId = match.tournament.uniqueTournament.id;
+    if (!groups[tournamentId]) {
+      groups[tournamentId] = [];
     }
-    return format(matchDate, 'MMM d')
-  }
+    groups[tournamentId].push(match);
+    return groups;
+  }, {} as Record<number, SofaScoreMatch[]>);
 
-  // Unused: const getLiveCount = () => matches.filter(m => m.status === 'LIVE').length
-  // Unused: const getFinishedCount = () => matches.filter(m => m.status === 'FINISHED').length
-  // Unused: const getUpcomingCount = () => matches.filter(m => m.status === 'SCHEDULED').length
-
-  const getWinnerStyles = (match: Match, isHome: boolean) => {
-    if (match.status !== 'FINISHED') return ''
-    
-    const homeScore = match.score.fullTime.home ?? 0
-    const awayScore = match.score.fullTime.away ?? 0
-    
-    if (homeScore === awayScore) return 'text-gray-400'
-    if (isHome) {
-      return homeScore > awayScore ? 'font-bold text-black' : 'text-gray-400'
-    }
-    return awayScore > homeScore ? 'font-bold text-black' : 'text-gray-400'
-  }
-
-  if (loading) return <div>Loading...</div>
-  if (error) return <div className="text-red-500">{error}</div>
-
-  // Group matches by date
-  // Unused: const groupedMatches = filteredMatches.reduce((groups, match) => {
-    const date = formatMatchDate(match.utcDate)
-    if (!groups[date]) {
-      groups[date] = []
-    }
-    groups[date].push(match)
-    return groups
-  }, {} as Record<string, Match[]>)
+  if (loading) return <div>Loading matches...</div>
+  if (error) return <div>{error}</div>
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Recent Matches</h2>
-      <Card>
-        <div className="divide-y">
-          {matches.map((match) => (
-            <div key={match.id} className="p-4">
-              <div className="flex flex-col space-y-2">
-                {/* Competition header */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <img 
-                    src={match.competition.emblem} 
-                    alt={match.competition.name}
-                    className="w-4 h-4"
+    <Card className="dark:bg-gray-900">
+      <div className="p-4 border-b dark:border-gray-800">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="w-5 h-5 text-red-500" />
+          <h2 className="font-semibold dark:text-white">Today's Matches</h2>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 dark:bg-gray-800">
+            <TabsTrigger value="all" className="dark:data-[state=active]:bg-gray-700">All</TabsTrigger>
+            <TabsTrigger value="live" className="dark:data-[state=active]:bg-gray-700">Live</TabsTrigger>
+            <TabsTrigger value="completed" className="dark:data-[state=active]:bg-gray-700">Completed</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="divide-y dark:divide-gray-800">
+        {!filteredMatches.length ? (
+          <div className="p-4 text-center text-muted-foreground dark:text-gray-400">
+            No {activeTab} matches
+          </div>
+        ) : (
+          Object.entries(groupedMatches).map(([tournamentId, tournamentMatches]) => (
+            <div key={tournamentId} className="space-y-2">
+              <div className="bg-accent/50 px-4 py-3 flex items-center justify-between dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <SharedImage 
+                    type="league" 
+                    id={Number(tournamentId)}
+                    className="w-8 h-8"
+                    alt={tournamentMatches[0].tournament.name} 
                   />
-                  <span>{match.competition.name}</span>
-                </div>
-
-                {/* Match details */}
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col items-center w-24">
-                    <div className="text-sm text-muted-foreground">
-                      {formatMatchDate(match.utcDate)}
-                    </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      {match.status === 'FINISHED' && (
-                        <span>FT</span>
-                      )}
-                      {match.status === 'FINISHED' ? '' : format(new Date(match.utcDate), 'HH:mm')}
-                    </div>
+                  <div>
+                    <span className="text-sm font-medium dark:text-white">
+                      {tournamentMatches[0].tournament.name}
+                    </span>
+                    {tournamentMatches[0].tournament.category?.name && (
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">
+                        {tournamentMatches[0].tournament.category.name}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex-1 px-4">
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={match.homeTeam.crest} 
-                        alt={match.homeTeam.name}
-                        className="w-5 h-5"
-                      />
-                      <span className={getWinnerStyles(match, true)}>
+                </div>
+                <span className="text-sm text-muted-foreground dark:text-gray-400">
+                  {formatRoundInfo(tournamentMatches[0])}
+                </span>
+              </div>
+              {tournamentMatches.map(match => (
+                <div key={match.id} 
+                  className="p-4 hover:bg-accent/50 cursor-pointer bg-white dark:bg-gray-900 dark:hover:bg-gray-800"
+                >
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <div className="flex items-center justify-end gap-3">
+                      <span className={`text-sm dark:text-gray-200 ${getWinnerStyle(match, true)}`}>
                         {match.homeTeam.shortName}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={match.awayTeam.crest} 
-                        alt={match.awayTeam.name}
-                        className="w-5 h-5"
+                      <SharedImage 
+                        type="team" 
+                        id={match.homeTeam.id} 
+                        className="w-10 h-10 mr-1"
+                        alt={match.homeTeam.name} 
                       />
-                      <span className={getWinnerStyles(match, false)}>
+                    </div>
+
+                    <div className="flex flex-col items-center min-w-[100px]">
+                      {match.status.type === 'inprogress' ? (
+                        <>
+                          <div className="font-medium text-red-500">
+                            {match.homeScore.display} - {match.awayScore.display}
+                          </div>
+                          <div className="text-xs text-red-500">
+                            {getMatchTime(match)}
+                          </div>
+                        </>
+                      ) : match.status.type === 'finished' ? (
+                        <>
+                          <ScoreDisplay match={match} />
+                          <div className="text-xs text-muted-foreground dark:text-gray-400 mt-0.5">
+                            FT
+                          </div>
+                          {match.time?.timestamp && (
+                            <div className="text-xs text-muted-foreground dark:text-gray-400 mt-0.5">
+                              {formatDateTime(match.time.timestamp).date}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center text-sm text-muted-foreground dark:text-gray-400">
+                          {match.time?.timestamp && (
+                            <>
+                              <div>{formatDateTime(match.time.timestamp).date}</div>
+                              <div>{formatDateTime(match.time.timestamp).time}</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <SharedImage 
+                        type="team" 
+                        id={match.awayTeam.id} 
+                        className="w-10 h-10 ml-1"
+                        alt={match.awayTeam.name} 
+                      />
+                      <span className={`text-sm dark:text-gray-200 ${getWinnerStyle(match, false)}`}>
                         {match.awayTeam.shortName}
                       </span>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end">
-                      <span className={`font-bold ${getWinnerStyles(match, true)}`}>
-                        {match.score.fullTime.home ?? '-'}
-                      </span>
-                      <span className={`font-bold ${getWinnerStyles(match, false)}`}>
-                        {match.score.fullTime.away ?? '-'}
-                      </span>
-                    </div>
-                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
-    </div>
+          ))
+        )}
+      </div>
+    </Card>
   )
 } 

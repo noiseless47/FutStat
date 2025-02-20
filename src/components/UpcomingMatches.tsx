@@ -1,28 +1,31 @@
 'use client'
 
-;
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { Match } from '@/lib/football-api'
-import { isToday, isTomorrow } from 'date-fns'
+import { fetchMatches } from '@/lib/sofascore-api'
+import { format, isToday, isTomorrow } from 'date-fns'
 import { CalendarDays } from 'lucide-react'
 
 export function UpcomingMatches() {
-  const [matches, setMatches] = useState<Match[]>([])
+  const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchMatches() {
+    async function loadMatches() {
       try {
         setLoading(true)
         setError(null)
-        const data = await footballApi.getMatches(2021)
-        const upcomingMatches = data.matches
-          .filter(match => new Date(match.utcDate) >= new Date())
-          .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-          .slice(0, 5)
-        
+        const data = await fetchMatches()
+        const upcomingMatches = data
+          .filter(match => 
+            match.status.type !== 'finished' && 
+            match.status.type !== 'inprogress'
+          )
+          .sort((a, b) => 
+            (a.time?.timestamp || 0) - (b.time?.timestamp || 0)
+          )
+          .slice(0, 5) // Get next 5 matches
         setMatches(upcomingMatches)
       } catch (error) {
         console.error('Error fetching matches:', error)
@@ -32,7 +35,7 @@ export function UpcomingMatches() {
       }
     }
 
-    fetchMatches()
+    loadMatches()
   }, [])
 
   function formatMatchDate(date: string) {

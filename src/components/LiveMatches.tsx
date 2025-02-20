@@ -1,107 +1,102 @@
 'use client'
 
-;
 import { useState, useEffect } from 'react'
-import { Card, CardContent } from "@/components/ui/card"
-
-
+import { Card } from "@/components/ui/card"
+import { SharedImage } from '@/components/shared-image'
 import { Activity } from 'lucide-react'
-import { fetches, SofaScore} from '@/lib/sofascore-api'
+import { fetchMatches, type SofaScoreMatch, getMatchTime } from '@/lib/sofascore-api'
 
-export function LiveMatches() {
+export function MatchesList() {
   const [matches, setMatches] = useState<SofaScoreMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let isSubscribed = true;
-
-    const fetchMatchData = async () => {
+    const loadMatches = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        const allMatches = await fetchMatches();
-        if (isSubscribed && allMatches) {
-          setMatches(allMatches);
-        }
+        setLoading(true)
+        const data = await fetchMatches()
+        console.log('Matches data in component:', data);
+        
+        const sortedMatches = data.sort((a, b) => {
+          // Live matches first
+          if (a.status.type === 'inprogress' && b.status.type !== 'inprogress') return -1;
+          if (b.status.type === 'inprogress' && a.status.type !== 'inprogress') return 1;
+          // Then by timestamp
+          return (a.time?.timestamp || 0) - (b.time?.timestamp || 0);
+        });
+        console.log('Sorted matches:', sortedMatches);
+        setMatches(sortedMatches)
       } catch (error) {
-        console.error('Error fetching matches:', error);
-        if (isSubscribed) {
-          setError('Failed to load matches');
-        }
+        console.error('Error loading matches:', error)
+        setError('Failed to load matches')
       } finally {
-        if (isSubscribed) {
-          setLoading(false);
-        }
+        setLoading(false)
       }
-    };
+    }
 
-    fetchMatchData();
-    // Update every 30 seconds
-    const interval = setInterval(fetchMatchData, 30000);
+    loadMatches()
+    const interval = setInterval(loadMatches, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
-    return () => {
-      isSubscribed = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  if (loading) return <div>Loading...</div>
-  if (error) return <div className="text-red-500">{error}</div>
-  if (matches.length === 0) return (
-    <Card>
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5" />
-          <h2 className="font-semibold">Live Matches</h2>
-        </div>
-        <span className="text-sm text-muted-foreground">Premier League</span>
-      </div>
-      <CardContent className="p-4">
-        No live matches at the moment
-      </CardContent>
-    </Card>
-  )
+  if (loading) return <div>Loading matches...</div>
+  if (error) return <div>{error}</div>
+  if (!matches.length) return <div>No matches today</div>
 
   return (
     <Card>
       <div className="p-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-red-500" />
-          <h2 className="font-semibold">Live Matches</h2>
+          <h2 className="font-semibold">Today's Matches</h2>
         </div>
-        <span className="text-sm text-muted-foreground">Premier League</span>
       </div>
-      <CardContent className="p-0">
-        {matches.map((match) => (
-          <div 
-            key={match.id} 
-            className="p-4 border-b last:border-0 hover:bg-accent/50 transition-colors"
-          >
+
+      <div className="divide-y">
+        {matches.map(match => (
+          <div key={match.id} className="p-4 hover:bg-accent/50 cursor-pointer">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <img 
-                  src={match.homeTeam.crest} 
+              <div className="flex items-center gap-2">
+                <SharedImage 
+                  type="league" 
+                  id={match.tournament.uniqueTournament.id} 
+                  className="w-4 h-4" 
+                  alt={match.tournament.name} 
+                />
+                <span className="text-sm text-muted-foreground">{match.tournament.name}</span>
+              </div>
+              <div className={`text-sm font-medium ${match.status.type === 'inprogress' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                {getMatchTime(match)}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <SharedImage 
+                  type="team" 
+                  id={match.homeTeam.id} 
+                  className="w-5 h-5" 
                   alt={match.homeTeam.name} 
-                  className="w-6 h-6"
                 />
-                <span className="font-medium">{match.homeTeam.shortName}</span>
+                <span>{match.homeTeam.shortName}</span>
               </div>
-              <div className="font-bold">
-                {match.homeTeam.score} - {match.awayTeam.score}
+              <div className="font-medium mx-4">
+                {match.homeScore.display} - {match.awayScore.display}
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-medium">{match.awayTeam.shortName}</span>
-                <img 
-                  src={match.awayTeam.crest} 
+              <div className="flex items-center gap-2 min-w-0">
+                <SharedImage 
+                  type="team" 
+                  id={match.awayTeam.id} 
+                  className="w-5 h-5" 
                   alt={match.awayTeam.name} 
-                  className="w-6 h-6"
                 />
+                <span>{match.awayTeam.shortName}</span>
               </div>
             </div>
           </div>
         ))}
-      </CardContent>
+      </div>
     </Card>
   )
 } 

@@ -58,10 +58,36 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string }>
           console.warn('No tournaments data available for player')
         }
 
+        // Fetch statistics for each match
+        const matchesWithStats = await Promise.all(
+          matchesData?.map(async (match: any) => {
+            try {
+              const statsResponse = await fetch(
+                `https://api.sofascore.com/api/v1/event/${match.id}/player/${resolvedParams.id}/statistics`,
+                {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  }
+                }
+              )
+              const statsData = await statsResponse.json()
+              return {
+                ...match,
+                playerStatistics: statsData.statistics
+              }
+            } catch (error) {
+              console.error('Error fetching match statistics:', error)
+              return match
+            }
+          }) || []
+        )
+
+        console.log('Matches with stats:', matchesWithStats)
+        setRecentMatches(matchesWithStats || [])
+
         setPlayer(playerData)
         setAttributes(attributesData)
         setTournaments(tournamentsData || [])
-        setRecentMatches(matchesData || [])
 
         // Set default tournament (primary league)
         const primaryTournament = tournamentsData?.find((t: any) => 
@@ -650,7 +676,7 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string }>
                   .sort((a, b) => b.startTimestamp - a.startTimestamp)
                   .slice(0, 10)
                   .map((match: any) => {
-                    const stats = match.statistics?.statistics;
+                    const stats = match.playerStatistics;
                     
                     return (
                       <div 
@@ -732,10 +758,12 @@ export default function PlayerPage({ params }: { params: Promise<{ id: string }>
 
       {selectedMatch && (
         <MatchDetailsModal
-          match={selectedMatch}
-          player={player}
+          matchId={selectedMatch.id}
           isOpen={!!selectedMatch}
           onClose={() => setSelectedMatch(null)}
+          player={{
+            statistics: selectedMatch.playerStatistics
+          }}
         />
       )}
     </div>

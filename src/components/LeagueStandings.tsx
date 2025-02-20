@@ -1,6 +1,6 @@
-import { SharedImage } from '@/components/ui/shared-image';
 'use client'
 
+import { SharedImage } from '@/components/shared-image';
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -53,7 +53,7 @@ export function LeagueStandings() {
   return (
     <Card className="col-span-4">
       <div className="p-4 border-b flex items-center justify-between">
-        <h2 className="font-semibold">League Standings</h2>
+        <h2 className="font-semibold">Popular Standings</h2>
         <Select value={activeLeague} onValueChange={setActiveLeague}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select league" />
@@ -62,7 +62,12 @@ export function LeagueStandings() {
             {LEAGUES.map(league => (
               <SelectItem key={league.value} value={league.value}>
                 <div className="flex items-center gap-2">
-                  <SharedImage type="league" id={${league.id}} className="w-4 h-4" alt="" />
+                  <SharedImage 
+                    type="league" 
+                    id={league.id} 
+                    className="w-4 h-4" 
+                    alt={league.name}
+                  />
                   {league.name}
                 </div>
               </SelectItem>

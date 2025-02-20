@@ -1,18 +1,18 @@
-import { SharedImage } from '@/components/ui/shared-image';
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from 'react'
+import { Card } from "@/components/ui/card"
+import { SharedImage } from "@/components/shared-image"
 import { format } from 'date-fns'
+import { MatchDetailsModal } from "@/components/ui/match-details-modal"
+
+interface RecentMatchesProps {
+  teamId: number
+}
 
 interface Match {
   id: number
-  tournament: {
-    uniqueTournament: {
-      id: number
-      name: string
-    }
-  }
+  startTimestamp: number
   homeTeam: {
     id: number
     name: string
@@ -23,166 +23,235 @@ interface Match {
     name: string
     shortName: string
   }
-  homeScore?: {
+  homeScore: {
     current: number
   }
-  awayScore?: {
+  awayScore: {
     current: number
   }
-  startTimestamp: number
+  tournament: {
+    uniqueTournament: {
+      id: number
+      name: string
+    }
+    category: {
+      name: string
+    }
+  }
+  roundInfo?: {
+    round: number
+    name?: string
+  }
   status: {
     type: string
   }
 }
 
-interface RecentMatchesProps {
-  teamId: number
-}
-
 export function RecentMatches({ teamId }: RecentMatchesProps) {
   const [matches, setMatches] = useState<Match[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
 
   useEffect(() => {
     const loadMatches = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
+        setLoading(true)
+        // Get upcoming matches
+        const upcomingResponse = await fetch(
+          `https://api.sofascore.com/api/v1/team/${teamId}/events/next/0`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          }
+        )
+        const upcomingData = await upcomingResponse.json()
+        console.log('Upcoming matches:', upcomingData)
 
         // Get past matches
-        const pastMatchesResponse = await fetch(`https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        const pastResponse = await fetch(
+          `https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
           }
-        })
-        const pastMatchesData = await pastMatchesResponse.json()
-
-        // Get upcoming matches
-        const upcomingMatchesResponse = await fetch(`https://api.sofascore.com/api/v1/team/${teamId}/events/next/0`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        })
-        const upcomingMatchesData = await upcomingMatchesResponse.json()
-
-        // Filter and sort past matches
-        const pastMatches = (pastMatchesData.events || [])
-          .filter((match: Match) => {
-            const matchDate = new Date(match.startTimestamp * 1000)
-            const isCurrentSeason = matchDate > new Date('2023-07-01')
-            return isCurrentSeason && match.status.type === 'finished'
-          })
-          .sort((a: Match, b: Match) => b.startTimestamp - a.startTimestamp)
-          .slice(0, 8) // Take only last 8 matches
-
-        // Get upcoming 2 matches
-        const upcomingMatches = (upcomingMatchesData.events || [])
-          .filter((match: Match) => match.status.type === 'notstarted')
-          .slice(0, 2) // Take only next 2 matches
-
-        // Combine matches with past matches first, then upcoming
-        setMatches([...pastMatches, ...upcomingMatches])
-
-        // Sort all matches by date (most recent first)
-        setMatches(matches => 
-          [...matches].sort((a, b) => b.startTimestamp - a.startTimestamp)
         )
+        const pastData = await pastResponse.json()
+        console.log('Past matches:', pastData)
 
+        // Combine and set matches - keep upcoming matches in ascending order first, then take first 2, then reverse them
+        const upcomingMatches = (upcomingData.events || [])
+          .sort((a: Match, b: Match) => a.startTimestamp - b.startTimestamp)
+          .slice(0, 2)
+          .reverse()
+        const pastMatches = (pastData.events || []).reverse().slice(0, 8)
+        setMatches([...upcomingMatches, ...pastMatches])
       } catch (error) {
         console.error('Error loading matches:', error)
-        setError('Failed to load matches')
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     loadMatches()
   }, [teamId])
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-4">
-          Loading matches...
-        </CardContent>
-      </Card>
-    )
+  if (loading) return <div>Loading matches...</div>
+  if (!matches.length) return <div>No matches found</div>
+
+  const upcomingMatches = matches.filter(match => match.status.type !== 'finished').slice(0, 2)
+  const completedMatches = matches.filter(match => match.status.type === 'finished').slice(0, 8)
+
+  const handleMatchClick = (matchId: number) => {
+    setSelectedMatchId(matchId)
   }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="p-4 text-red-500">
-          {error}
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (matches.length === 0) return null
-
-  const now = Date.now() / 1000 // Current timestamp in seconds
 
   return (
-    <Card>
-      <div className="p-4 border-b flex items-center justify-between">
+    <Card className="overflow-hidden">
+      <div className="p-4 border-b">
         <h2 className="font-semibold">Matches</h2>
-        <span className="text-sm text-muted-foreground">
-          {matches.length} matches
-        </span>
       </div>
-      <CardContent className="p-0 divide-y">
-        {matches.map((match) => {
-          const isUpcoming = match.startTimestamp > now
-          const isPast = match.startTimestamp < now
-          
-          return (
-            <div key={match.id} className="p-4 hover:bg-accent/50 transition-colors">
-              <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
-                <SharedImage type="league" id={${match.tournament.uniqueTournament.id}} className="w-4 h-4" alt="" />
-                <span>{match.tournament.uniqueTournament.name}</span>
-                <span className="ml-auto">
-                  {format(new Date(match.startTimestamp * 1000), 'MMM dd, yyyy')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1">
-                  <SharedImage type="team" id={${match.homeTeam.id}} className="w-6 h-6" alt="" />
-                  <span className={`${match.homeTeam.id === teamId ? "font-medium" : ""} ${
-                    isPast && (match.homeScore?.current ?? 0) > (match.awayScore?.current ?? 0) ? "text-green-600" : 
-                    isPast && (match.homeScore?.current ?? 0) < (match.awayScore?.current ?? 0) ? "text-red-600" : ""
-                  }`}>
-                    {match.homeTeam.shortName}
-                  </span>
+
+      <div className="space-y-4 p-4">
+        {/* Upcoming Matches Section */}
+        {upcomingMatches.length > 0 && (
+          <div>
+            <div className="text-sm text-muted-foreground mb-2">Upcoming</div>
+            <div className="divide-y">
+              {upcomingMatches.map(match => (
+                <div 
+                  key={match.id} 
+                  className="py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => handleMatchClick(match.id)}
+                >
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                    <SharedImage 
+                      type="league" 
+                      id={match.tournament.uniqueTournament.id} 
+                      className="w-4 h-4" 
+                      alt={match.tournament.uniqueTournament.name}
+                    />
+                    <span>{match.tournament.uniqueTournament.name}</span>
+                    {match.roundInfo && (
+                      <>
+                        <span className="mx-1">·</span>
+                        <span>
+                          {match.roundInfo.name || `Round ${match.roundInfo.round}`}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="w-24 text-right">{match.homeTeam.shortName}</span>
+                    <SharedImage 
+                      type="team" 
+                      id={match.homeTeam.id} 
+                      className="w-10 h-10" 
+                      alt={match.homeTeam.name}
+                    />
+                    <div className="flex flex-col items-center">
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(match.startTimestamp * 1000), 'MMM d')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(match.startTimestamp * 1000), 'HH:mm')}
+                      </div>
+                    </div>
+                    <SharedImage 
+                      type="team" 
+                      id={match.awayTeam.id} 
+                      className="w-10 h-10" 
+                      alt={match.awayTeam.name}
+                    />
+                    <span className="w-24 text-left">{match.awayTeam.shortName}</span>
+                  </div>
                 </div>
-                <div className="px-3 font-bold">
-                  {isUpcoming ? (
-                    <span className="text-sm text-muted-foreground">
-                      {format(new Date(match.startTimestamp * 1000), 'HH:mm')}
-                    </span>
-                  ) : (
-                    <span className={
-                      (match.homeScore?.current ?? 0) === (match.awayScore?.current ?? 0) ? "text-yellow-600" : ""
-                    }>
-                      {match.homeScore?.current ?? 0} - {match.awayScore?.current ?? 0}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-1 justify-end text-right">
-                  <span className={`${match.awayTeam.id === teamId ? "font-medium" : ""} ${
-                    isPast && (match.awayScore?.current ?? 0) > (match.homeScore?.current ?? 0) ? "text-green-600" : 
-                    isPast && (match.awayScore?.current ?? 0) < (match.homeScore?.current ?? 0) ? "text-red-600" : ""
-                  }`}>
-                    {match.awayTeam.shortName}
-                  </span>
-                  <SharedImage type="team" id={${match.awayTeam.id}} className="w-6 h-6" alt="" />
-                </div>
-              </div>
+              ))}
             </div>
-          )
-        })}
-      </CardContent>
+          </div>
+        )}
+
+        {/* Completed Matches */}
+        <div>
+          <div className="text-sm text-muted-foreground mb-2">Completed</div>
+          <div className="divide-y">
+            {completedMatches.map(match => {
+              const homeWon = match.homeScore.current > match.awayScore.current;
+              const awayWon = match.awayScore.current > match.homeScore.current;
+              
+              return (
+                <div 
+                  key={match.id} 
+                  className="py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => handleMatchClick(match.id)}
+                >
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                    <SharedImage 
+                      type="league" 
+                      id={match.tournament.uniqueTournament.id} 
+                      className="w-4 h-4" 
+                      alt={match.tournament.uniqueTournament.name}
+                    />
+                    <span>{match.tournament.uniqueTournament.name}</span>
+                    {match.roundInfo && (
+                      <>
+                        <span className="mx-1">·</span>
+                        <span>
+                          {match.roundInfo.name || `Round ${match.roundInfo.round}`}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`w-24 text-right ${homeWon ? 'font-bold' : ''}`}>
+                      {match.homeTeam.shortName}
+                    </span>
+                    <SharedImage 
+                      type="team" 
+                      id={match.homeTeam.id} 
+                      className="w-10 h-10" 
+                      alt={match.homeTeam.name}
+                    />
+                    <div className="flex flex-col items-center">
+                      <div className="text-base">
+                        <span className={homeWon ? 'font-bold' : ''}>
+                          {match.homeScore.current}
+                        </span>
+                        {' - '}
+                        <span className={awayWon ? 'font-bold' : ''}>
+                          {match.awayScore.current}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">FT</div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(match.startTimestamp * 1000), 'MMM d')}
+                      </div>
+                    </div>
+                    <SharedImage 
+                      type="team" 
+                      id={match.awayTeam.id} 
+                      className="w-10 h-10" 
+                      alt={match.awayTeam.name}
+                    />
+                    <span className={`w-24 text-left ${awayWon ? 'font-bold' : ''}`}>
+                      {match.awayTeam.shortName}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {selectedMatchId && (
+        <MatchDetailsModal
+          matchId={selectedMatchId}
+          isOpen={!!selectedMatchId}
+          onClose={() => setSelectedMatchId(null)}
+        />
+      )}
     </Card>
   )
 } 

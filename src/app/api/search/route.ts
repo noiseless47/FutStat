@@ -1,17 +1,52 @@
 import { NextResponse } from 'next/server'
 
+interface Competition {
+  id: number
+  name: string
+  code?: string
+  area?: {
+    name: string
+    code: string
+    flag?: string
+  }
+  type?: string
+  emblem?: string
+}
+
+interface Team {
+  id: number
+  name: string
+  shortName?: string
+  tla?: string
+  crest?: string
+  area?: {
+    name: string
+  }
+}
+
+interface CompetitionsResponse {
+  competitions: Competition[]
+}
+
+interface TeamsResponse {
+  teams: Team[]
+}
+
 const API_URL = process.env.FOOTBALL_API_URL
 const API_KEY = process.env.FOOTBALL_API_KEY
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const query = searchParams.get('q')?.toLowerCase()
-
-  if (!query) {
-    return NextResponse.json({ results: [] })
-  }
-
   try {
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')?.toLowerCase() || ''
+
+    if (!query) {
+      return NextResponse.json(
+        { error: 'Search query is required' },
+        { status: 400 }
+      )
+    }
+
     const headers = {
       'X-Auth-Token': API_KEY as string
     }
@@ -25,51 +60,68 @@ export async function GET(request: Request) {
 
     const teamsResponses = await Promise.all(teamsPromises)
     
-    // Get all competitions
+    // Fetch competitions data
     const competitionsResponse = await fetch(
-      `${API_URL}/competitions`,
-      { headers }
+      'https://api.football-data.org/v4/competitions',
+      {
+        headers: {
+          'X-Auth-Token': process.env.NEXT_PUBLIC_FOOTBALL_DATA_KEY || '',
+        },
+        next: { revalidate: 3600 } // Cache for 1 hour
+      }
     )
-    const competitionsData = await competitionsResponse.json()
+
+    if (!competitionsResponse.ok) {
+      throw new Error('Failed to fetch competitions')
+    }
+
+    const competitionsData: CompetitionsResponse = await competitionsResponse.json()
 
     // Filter and format results
     const allTeams = teamsResponses.flatMap(response => response.teams || [])
     const filteredTeams = allTeams
-      .filter(team => 
+      .filter((team: Team) => 
         team.name.toLowerCase().includes(query) || 
         team.shortName?.toLowerCase().includes(query) ||
         team.tla?.toLowerCase().includes(query)
       )
-      .slice(0, 5) // Limit to top 5 matches
+      .slice(0, 5)
 
+    // Filter and format competitions
     const filteredCompetitions = competitionsData.competitions
-      .filter((comp: unknown) => 
+      .filter((comp: Competition) =>
         comp.name.toLowerCase().includes(query) ||
         comp.code?.toLowerCase().includes(query)
       )
       .slice(0, 3) // Limit to top 3 matches
+      .map(comp => ({
+        id: comp.id,
+        name: comp.name,
+        code: comp.code,
+        country: comp.area?.name,
+        flag: comp.area?.flag,
+        type: comp.type,
+        emblem: comp.emblem
+      }))
 
     // Combine and format results
     const results = [
-      ...filteredTeams.map((team: unknown) => ({
+      ...filteredTeams.map((team: Team) => ({
         id: team.id,
         name: team.shortName || team.name,
         type: 'team',
         image: team.crest,
         area: team.area?.name
       })),
-      ...filteredCompetitions.map((comp: unknown) => ({
-        id: comp.id,
-        name: comp.name,
-        type: 'league',
-        image: comp.emblem,
-        area: comp.area?.name
-      }))
+      ...filteredCompetitions
     ]
 
     return NextResponse.json({ results })
   } catch (error) {
     console.error('Search error:', error)
-    return NextResponse.json({ error: 'Failed to search' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to perform search' },
+      { status: 500 }
+    )
   }
 } 

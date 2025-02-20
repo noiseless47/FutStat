@@ -1,6 +1,6 @@
 'use client'
 
-import { SharedImage } from '@/components/ui/shared-image';
+import { SharedImage } from '@/components/shared-image'
 import { useEffect, useState } from 'react'
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -59,11 +59,13 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
   })
   const [teamStats, setTeamStats] = useState<TeamStat[]>([])
   const [selectedStat, setSelectedStat] = useState("goals")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         setLoading(true)
+        setError(null)
         const [playerResponse, teamResponse] = await Promise.all([
           fetch(
             `https://api.sofascore.com/api/v1/unique-tournament/${leagueId}/season/${seasonId}/top-players/overall`,
@@ -88,8 +90,6 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
           teamResponse.json()
         ])
 
-        console.log('Team data:', teamData) // Debug log
-
         if (playerData.topPlayers) {
           setStats({
             goals: playerData.topPlayers.goals || [],
@@ -100,12 +100,12 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
           })
         }
 
-        // Access the avgRating array from topTeams
         if (teamData.topTeams?.avgRating) {
           setTeamStats(teamData.topTeams.avgRating)
         }
       } catch (error) {
         console.error('Error loading stats:', error)
+        setError('Failed to load statistics')
       } finally {
         setLoading(false)
       }
@@ -115,13 +115,7 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
   }, [leagueId, seasonId])
 
   if (loading) return <div>Loading stats...</div>
-
-  // Get top 10 teams sorted by rating
-  // Unused: const topTeams = Array.isArray(teamStats) 
-    ? [...teamStats]
-        .sort((a, b) => (b.statistics?.avgRating || 0) - (a.statistics?.avgRating || 0))
-        .slice(0, 10)
-    : []
+  if (error) return <div>{error}</div>
 
   return (
     <Card className="p-6">
@@ -179,9 +173,7 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
                     <div className="font-medium">{stat.player?.name}</div>
                     <div className="text-sm text-muted-foreground">{stat.player?.team?.name}</div>
                   </div>
-                  <div className="font-bold text-yellow-500">
-                    {stat.statistics?.yellowCards}
-                  </div>
+                  <div className="font-bold text-yellow-500">{stat.statistics?.yellowCards}</div>
                 </div>
               ))}
 
@@ -193,9 +185,7 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
                     <div className="font-medium">{stat.player?.name}</div>
                     <div className="text-sm text-muted-foreground">{stat.player?.team?.name}</div>
                   </div>
-                  <div className="font-bold text-red-500">
-                    {stat.statistics?.redCards}
-                  </div>
+                  <div className="font-bold text-red-500">{stat.statistics?.redCards}</div>
                 </div>
               ))}
 
@@ -203,13 +193,11 @@ export function LeagueStats({ leagueId, seasonId }: LeagueStatsProps) {
                 <div key={`${stat.player?.id}-${index}`} className="flex items-center gap-4">
                   <span className="w-6 text-muted-foreground">{index + 1}</span>
                   <SharedImage type="player" id={stat.player?.id} className="w-8 h-8 rounded-full" alt="" />
-                  <div className="flex-1 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{stat.player?.name}</div>
-                      <div className="text-sm text-muted-foreground">{stat.player?.team?.name}</div>
-                    </div>
-                    <div className="font-bold">{stat.statistics?.rating.toFixed(2)}</div>
+                  <div className="flex-1">
+                    <div className="font-medium">{stat.player?.name}</div>
+                    <div className="text-sm text-muted-foreground">{stat.player?.team?.name}</div>
                   </div>
+                  <div className="font-bold">{stat.statistics?.rating.toFixed(2)}</div>
                 </div>
               ))}
             </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { SharedImage } from '@/components/ui/shared-image';
+import { SharedImage } from '@/components/shared-image';
 import { useEffect, useState } from 'react'
 import { Card } from "@/components/ui/card"
 
@@ -42,7 +42,8 @@ const POSITION_NAMES = {
   'G': 'Goalkeepers'
 }
 
-const getCountryFlagUrl = (alpha2: string) => {
+const getCountryFlagUrl = (alpha2?: string) => {
+  if (!alpha2) return ''
   return `https://flagcdn.com/${alpha2.toLowerCase()}.svg`
 }
 
@@ -117,7 +118,7 @@ export function TeamSquad({ teamId }: TeamSquadProps) {
                         )}
                       </div>
                     </div>
-                    {player.country && (
+                    {player.country?.alpha2 && (
                       <img 
                         src={getCountryFlagUrl(player.country.alpha2)}
                         alt={player.country.name}
